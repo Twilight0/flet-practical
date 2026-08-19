@@ -1,0 +1,37 @@
+name: flet_clipboard
+description: "Flet extension for full-featured device clipboard access (text, images, HTML, files) powered by pasteboard."
+version: 0.1.0
+homepage: https://github.com/flet-dev/flet
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flet: ^0.86.0
+  pasteboard: ^0.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: org.flet.flet_clipboard
+        pluginClass: FletClipboardPlugin
+      ios:
+        pluginClass: FletClipboardPlugin
+      linux:
+        pluginClass: FletClipboardPlugin
+      macos:
+        pluginClass: FletClipboardPlugin
+      windows:
+        pluginClass: FletClipboardPlugin
+      web:
+        pluginClass: FletClipboardWeb
+        fileName: flet_clipboard_web.dart
