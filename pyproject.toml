@@ -3,16 +3,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "flet-clipboard"
+name = "flet-practical"
 version = "0.1.0"
-description = "Flet extension for full-featured device clipboard access (text, images, HTML, files) powered by pasteboard."
+description = "Unified Flet extension suite: Clipboard, Notifications, WakeLock, Edge TTS, AutoStart on boot, and In-App Purchases."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
     { name = "Twilight0" }
 ]
-keywords = ["flet", "flutter", "clipboard", "pasteboard", "copy", "paste", "gui"]
+keywords = ["flet", "flutter", "clipboard", "notifications", "wakelock", "tts", "autostart", "iap", "gui"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
@@ -25,16 +25,28 @@ classifiers = [
 ]
 dependencies = [
     "flet>=0.86.0",
+    "edge-tts>=7.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Twilight0/flet-practical"
+Repository = "https://github.com/Twilight0/flet-practical"
+Issues = "https://github.com/Twilight0/flet-practical/issues"
+Documentation = "https://github.com/Twilight0/flet-practical#readme"
 
 [project.optional-dependencies]
 dev = [
+    "flet-cli>=0.86.0",
+    "flet-desktop>=0.86.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/flet_clipboard"]
+packages = ["src/flet_practical"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/flutter" = "flutter"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -1,70 +1,49 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-import flet as ft
-from flet_clipboard import Clipboard
-
-
-def test_clipboard_initialization():
-    clipboard = Clipboard()
-    assert clipboard._c == "flet_clipboard"
+from flet_practical import Clipboard
 
 
 @pytest.mark.asyncio
-async def test_clipboard_get_text():
+async def test_clipboard_set_and_get_text():
     clipboard = Clipboard()
-    with patch.object(clipboard, "_invoke_method", new_callable=AsyncMock) as mock_invoke:
-        mock_invoke.return_value = "Hello World"
+    with patch.object(clipboard, "_get_text_linux", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = "Hello World"
         text = await clipboard.get_text()
         assert text == "Hello World"
-        mock_invoke.assert_awaited_once_with("get_text", timeout=None)
 
-
-@pytest.mark.asyncio
-async def test_clipboard_set_text():
-    clipboard = Clipboard()
-    with patch.object(clipboard, "_invoke_method", new_callable=AsyncMock) as mock_invoke:
-        mock_invoke.return_value = True
-        success = await clipboard.set_text("Sample Text")
-        assert success is True
-        mock_invoke.assert_awaited_once_with("set_text", {"text": "Sample Text"}, timeout=None)
+    with patch.object(clipboard, "_set_text_linux", new_callable=AsyncMock) as mock_set:
+        mock_set.return_value = True
+        res = await clipboard.set_text("Hello World")
+        assert res is True
 
 
 @pytest.mark.asyncio
 async def test_clipboard_has_text():
     clipboard = Clipboard()
-    with patch.object(clipboard, "_invoke_method", new_callable=AsyncMock) as mock_invoke:
-        mock_invoke.return_value = True
+    with patch.object(clipboard, "get_text", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = "Non empty"
         has_txt = await clipboard.has_text()
         assert has_txt is True
-        mock_invoke.assert_awaited_once_with("has_text", timeout=None)
+
+        mock_get.return_value = ""
+        has_txt = await clipboard.has_text()
+        assert has_txt is False
 
 
 @pytest.mark.asyncio
 async def test_clipboard_get_image():
     clipboard = Clipboard()
-    with patch.object(clipboard, "_invoke_method", new_callable=AsyncMock) as mock_invoke:
-        # base64 for "test"
-        mock_invoke.return_value = "dGVzdA=="
-        img_bytes = await clipboard.get_image()
-        assert img_bytes == b"test"
-        mock_invoke.assert_awaited_once_with("get_image", timeout=None)
-
-
-@pytest.mark.asyncio
-async def test_clipboard_get_files():
-    clipboard = Clipboard()
-    with patch.object(clipboard, "_invoke_method", new_callable=AsyncMock) as mock_invoke:
-        mock_invoke.return_value = ["/path/to/file1.txt", "/path/to/file2.png"]
-        files = await clipboard.get_files()
-        assert files == ["/path/to/file1.txt", "/path/to/file2.png"]
-        mock_invoke.assert_awaited_once_with("get_files", timeout=None)
+    with patch.object(clipboard, "get_image", new_callable=AsyncMock) as mock_img:
+        mock_img.return_value = b"PNG_DATA"
+        b64 = await clipboard.get_image_base64()
+        assert b64 == "UE5HX0RBVEE="
 
 
 @pytest.mark.asyncio
 async def test_clipboard_clear():
     clipboard = Clipboard()
-    with patch.object(clipboard, "_invoke_method", new_callable=AsyncMock) as mock_invoke:
-        mock_invoke.return_value = True
+    with patch.object(clipboard, "set_text", new_callable=AsyncMock) as mock_set:
+        mock_set.return_value = True
         res = await clipboard.clear()
         assert res is True
-        mock_invoke.assert_awaited_once_with("clear", timeout=None)
+        mock_set.assert_awaited_once_with("")
