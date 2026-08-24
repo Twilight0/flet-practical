@@ -59,22 +59,45 @@ img_bytes = await clipboard.get_image()
 ```python
 from flet_practical import Notifications
 
-notifications = Notifications()
+# on_click fires when the notification body is tapped (payload is returned)
+notifications = Notifications(on_click=lambda payload: print(f"Tapped: {payload}"))
 
-# Standard Alert
+await notifications.request_permissions()
+
+# Standard alert
 await notifications.show(
     id=1,
     title="Download Finished",
     body="Your file has been saved.",
+    payload="download:123",  # returned to on_click
 )
 
-# Persistent (Ongoing in Android status bar)
+# Persistent / ongoing (stays in Android status bar until cancelled)
 await notifications.show(
     id=2,
     title="Sync Service",
     body="Synchronizing files in background...",
     ongoing=True,
 )
+
+# Clickable action buttons (Linux desktop: notify-send -A; mobile: taps return payload)
+# on_action fires with the action key ("summarize", "speak", etc.)
+await notifications.show(
+    id=3,
+    title="Clipboard: text copied",
+    body="Long article copied — summarize or listen?",
+    actions=[
+        ("summarize", "Summarize"),
+        ("speak", "Speak"),
+        ("search", "Search"),
+    ],
+    on_action=lambda action_id: print(f"Action clicked: {action_id}"),
+    payload="clip:summarize",  # fallback if body tapped
+)
+
+# Cancel
+await notifications.cancel(2)
+await notifications.cancel_all()
 ```
 
 ### 3. Screen WakeLock
