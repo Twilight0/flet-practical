@@ -6,6 +6,8 @@ from flet_practical import (
     WakeLock,
     TtsService,
     AutoStart,
+    BackgroundService,
+    ReceiveShare,
     InAppPurchase,
     Product,
     Share,
@@ -113,8 +115,6 @@ async def test_iap():
 
     buy_res = await iap.buy("pro_sub")
     assert buy_res is True
-
-
 @pytest.mark.asyncio
 async def test_share():
     share = Share()
@@ -123,3 +123,21 @@ async def test_share():
 
     files_res = await share.share_files(["/nonexistent/file.txt"])
     assert files_res is False
+
+
+@pytest.mark.asyncio
+async def test_background_service():
+    bg = BackgroundService()
+    # On desktop, start is no-op returning True, is_running False
+    assert await bg.start(title="Test", text="Testing") is True
+    assert await bg.is_running() is False
+    assert await bg.stop() is True
+
+
+@pytest.mark.asyncio
+async def test_receive_share():
+    receive = ReceiveShare()
+    # No page / no incoming share on desktop -> empty list
+    initial = await receive.get_initial_share()
+    assert initial == []
+    assert await receive.reset() is False

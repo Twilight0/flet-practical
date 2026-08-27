@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flet-practical"
-version = "0.2.0"
-description = "Unified Flet extension suite: Clipboard, Notifications, WakeLock, Edge TTS, AutoStart on boot, and In-App Purchases."
+version = "0.3.0"
+description = "Unified Flet extension suite: Clipboard, Notifications, WakeLock, Edge TTS, AutoStart on boot, In-App Purchases, Share and Background Service."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
