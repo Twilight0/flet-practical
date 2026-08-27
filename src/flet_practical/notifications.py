@@ -3,6 +3,57 @@ import os
 import shutil
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
+import flet as ft
+
+
+@ft.control("practical_notifications")
+class PracticalNotifications(ft.Service):
+    on_click: Optional[ft.EventHandler[ft.ControlEvent]] = None
+
+    async def request_permissions(self) -> bool:
+        return await self._invoke_method("request_permissions")
+
+    async def are_notifications_enabled(self) -> bool:
+        return await self._invoke_method("are_notifications_enabled")
+
+    async def show(
+        self,
+        title: str,
+        body: str,
+        id: int = 1,
+        payload: Optional[str] = None,
+        channel_id: str = "flet_practical_default",
+        channel_name: str = "Default Channel",
+        channel_description: str = "",
+        ongoing: bool = False,
+        auto_cancel: Optional[bool] = None,
+        play_sound: bool = True,
+        enable_vibration: bool = True,
+    ) -> bool:
+        if auto_cancel is None:
+            auto_cancel = not ongoing
+        return await self._invoke_method(
+            "show",
+            arguments={
+                "id": id,
+                "title": title,
+                "body": body,
+                "payload": payload,
+                "channel_id": channel_id,
+                "channel_name": channel_name,
+                "channel_description": channel_description,
+                "ongoing": ongoing,
+                "auto_cancel": auto_cancel,
+                "play_sound": play_sound,
+                "enable_vibration": enable_vibration,
+            },
+        )
+
+    async def cancel(self, id: int = 1) -> bool:
+        return await self._invoke_method("cancel", arguments={"id": id})
+
+    async def cancel_all(self) -> bool:
+        return await self._invoke_method("cancel_all")
 
 
 class Notifications:
@@ -18,6 +69,8 @@ class Notifications:
         self._explicit_page = page
         self.on_click = on_click
         self._current_task: Optional[asyncio.Task] = None
+        self._service: Optional[PracticalNotifications] = None
+        self._service_registered: bool = False
 
     @property
     def page(self) -> Optional[Any]:
@@ -33,7 +86,58 @@ class Notifications:
     def page(self, value: Optional[Any]) -> None:
         self._explicit_page = value
 
+    def _ensure_service(self) -> Optional[PracticalNotifications]:
+        if self._service_registered and self._service:
+            return self._service
+
+        current_page = self.page
+        if not current_page:
+            return None
+
+        try:
+            services = getattr(current_page, "services", None)
+            if services is not None:
+                for s in services:
+                    if isinstance(s, PracticalNotifications):
+                        self._service = s
+                        self._service_registered = True
+                        return self._service
+
+                self._service = PracticalNotifications()
+                if self.on_click is not None:
+                    self._service.on_click = self._on_click_event
+                services.append(self._service)
+                self._service_registered = True
+                return self._service
+        except Exception:
+            pass
+        return None
+
     async def request_permissions(self) -> bool:
+        svc = self._ensure_service()
+        if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
+            try:
+                return await svc.request_permissions()
+            except Exception:
+                pass
+        return True
+
+    async def _on_click_event(self, e: ft.ControlEvent) -> None:
+        """Adapter: mobile tap event (ControlEvent.data = payload) -> user on_click(str)."""
+        if self.on_click is None:
+            return
+        payload = getattr(e, "data", "") or ""
+        result = self.on_click(payload)
+        if asyncio.iscoroutine(result):
+            await result
+
+    async def are_notifications_enabled(self) -> bool:
+        svc = self._ensure_service()
+        if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
+            try:
+                return await svc.are_notifications_enabled()
+            except Exception:
+                pass
         return True
 
     async def show(
@@ -59,6 +163,25 @@ class Notifications:
         """
         if auto_cancel is None:
             auto_cancel = not ongoing
+
+        svc = self._ensure_service()
+        if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
+            try:
+                return await svc.show(
+                    title=title,
+                    body=body,
+                    id=id,
+                    payload=payload,
+                    channel_id=channel_id,
+                    channel_name=channel_name,
+                    channel_description=channel_description,
+                    ongoing=ongoing,
+                    auto_cancel=auto_cancel,
+                    play_sound=play_sound,
+                    enable_vibration=enable_vibration,
+                )
+            except Exception as ex:
+                print(f"Error calling mobile notification service: {ex}")
 
         # Linux Desktop with interactive actions
         if sys.platform.startswith("linux") and shutil.which("notify-send"):
@@ -99,13 +222,27 @@ class Notifications:
 
         return True
 
-    async def cancel(self, id: int) -> bool:
+    async def cancel(self, id: int = 1) -> bool:
+        svc = self._ensure_service()
+        if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
+            try:
+                return await svc.cancel(id)
+            except Exception:
+                pass
+
         if self._current_task and not self._current_task.done():
             self._current_task.cancel()
             self._current_task = None
         return True
 
     async def cancel_all(self) -> bool:
+        svc = self._ensure_service()
+        if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
+            try:
+                return await svc.cancel_all()
+            except Exception:
+                pass
+
         if self._current_task and not self._current_task.done():
             self._current_task.cancel()
             self._current_task = None

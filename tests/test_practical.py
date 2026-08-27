@@ -37,6 +37,24 @@ async def test_notifications():
 
 
 @pytest.mark.asyncio
+async def test_notifications_enabled_default():
+    notifications = Notifications()
+    assert await notifications.are_notifications_enabled() is True
+
+
+@pytest.mark.asyncio
+async def test_notifications_on_click_adapter():
+    received = []
+    notifications = Notifications(on_click=lambda payload: received.append(payload))
+
+    class _FakeEvent:
+        data = "tracking:open"
+
+    await notifications._on_click_event(_FakeEvent())
+    assert received == ["tracking:open"]
+
+
+@pytest.mark.asyncio
 async def test_wakelock():
     wakelock = WakeLock()
     assert await wakelock.is_enabled() is False
@@ -59,6 +77,30 @@ async def test_tts_initialization():
 async def test_autostart():
     autostart = AutoStart(app_name="TestApp")
     assert autostart.app_name == "TestApp"
+
+
+@pytest.mark.asyncio
+async def test_autostart_mobile_service_delegation():
+    autostart = AutoStart(app_name="TestApp")
+    svc = AsyncMock()
+    svc.enable.return_value = True
+    svc.is_enabled.return_value = True
+    with patch.object(autostart, "_is_mobile", return_value=True), \
+         patch.object(autostart, "_ensure_service", return_value=svc):
+        assert await autostart.enable() is True
+        assert await autostart.is_enabled() is True
+        svc.enable.assert_awaited_once()
+        svc.is_enabled.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_autostart_mobile_no_service():
+    autostart = AutoStart(app_name="TestApp")
+    with patch.object(autostart, "_is_mobile", return_value=True), \
+         patch.object(autostart, "_ensure_service", return_value=None):
+        assert await autostart.enable() is False
+        assert await autostart.disable() is False
+        assert await autostart.is_enabled() is False
 
 
 @pytest.mark.asyncio

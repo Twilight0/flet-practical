@@ -65,15 +65,24 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
     widget.control.invoker = (String name, dynamic args) async {
       switch (name) {
         case "request_permissions":
+          bool? result;
           final android = _notificationsPlugin.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
           if (android != null) {
-            await android.requestNotificationsPermission();
+            result = await android.requestNotificationsPermission();
           }
           final ios = _notificationsPlugin.resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>();
           if (ios != null) {
-            await ios.requestPermissions(alert: true, badge: true, sound: true);
+            result = await ios.requestPermissions(alert: true, badge: true, sound: true);
+          }
+          return result ?? true;
+
+        case "are_notifications_enabled":
+          final androidEnabled = _notificationsPlugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+          if (androidEnabled != null) {
+            return await androidEnabled.areNotificationsEnabled();
           }
           return true;
 

@@ -9,7 +9,7 @@ async def main(page: ft.Page):
     page.window.height = 700
     page.padding = 24
 
-    autostart = AutoStart(app_name="FletPracticalDemo")
+    autostart = AutoStart(app_name="FletPracticalDemo", page=page)
 
     is_active = await autostart.is_enabled()
     status_label = ft.Text(
