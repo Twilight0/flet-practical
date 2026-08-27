@@ -24,14 +24,16 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
   }
 
   void _registerMethodHandlers() {
-    widget.control.invoker = (String name, dynamic args) async {
+    widget.control.addInvokeMethodListener((String name, dynamic args) async {
       switch (name) {
         case "share_text":
           final String text = args is Map ? (args["text"] as String? ?? "") : args.toString();
           final String? subject = args is Map ? args["subject"] as String? : null;
-          final ShareResult result = await Share.share(
-            text,
-            subject: subject,
+          final ShareResult result = await SharePlus.instance.share(
+            ShareParams(
+              text: text,
+              subject: subject,
+            ),
           );
           return {
             "status": result.status.name, // success, dismissed, unavailable
@@ -46,10 +48,12 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
           final String? subject = args is Map ? args["subject"] as String? : null;
 
           final List<XFile> xfiles = paths.map((p) => XFile(p)).toList();
-          final ShareResult result = await Share.shareXFiles(
-            xfiles,
-            text: text,
-            subject: subject,
+          final ShareResult result = await SharePlus.instance.share(
+            ShareParams(
+              files: xfiles,
+              text: text,
+              subject: subject,
+            ),
           );
           return {
             "status": result.status.name,
@@ -62,16 +66,17 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
           if (uri == null) {
             return {"status": "error", "error": "Invalid URI format"};
           }
-          final ShareResult result = await Share.shareUri(uri);
+          final ShareResult result = await SharePlus.instance.share(
+            ShareParams(uri: uri),
+          );
           return {
             "status": result.status.name,
             "raw": result.raw,
           };
-
         default:
           throw Exception("Unknown share method: $name");
       }
-    };
+    });
   }
 
   @override

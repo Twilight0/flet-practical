@@ -1,6 +1,6 @@
 # Flet Practical Extension Suite
 
-A unified, production-ready Flet extension suite bundling 7 essential device and system capabilities for **Mobile (Android & iOS)**, **Desktop (Linux, Windows, macOS)**, and **Web**:
+A unified, production-ready Flet extension suite bundling 8 essential device and system capabilities for **Mobile (Android & iOS)**, **Desktop (Linux, Windows, macOS)**, and **Web**:
 
 1. 📋 **Clipboard**: Full cross-platform clipboard support (Text, HTML, raw images, and file paths).
 2. 🔔 **Local & Persistent Notifications**: Trigger local and ongoing status bar notifications.
@@ -9,6 +9,7 @@ A unified, production-ready Flet extension suite bundling 7 essential device and
 5. 🚀 **Auto-Start on Boot**: Configure automatic app startup on device boot and system launch.
 6. 💳 **In-App Purchases**: Manage Google Play & Apple App Store in-app billing, consumables, and subscriptions.
 7. 📤 **Native Share Intent**: Open the native OS Share Sheet (Android `ACTION_SEND`, iOS `UIActivityViewController`, Web Share API).
+8. 🔄 **Background Service**: Keep the Python isolate alive after Home via Android ForegroundService.
 
 ---
 
@@ -151,6 +152,33 @@ await share.share_text("Check this out: https://flet.dev", subject="Flet App")
 await share.share_files(["/path/to/invoice.pdf"])
 ```
 
+### 8. Background Service
+Keep the Python isolate alive after the user returns to the Android desktop via a `ForegroundService` with an ongoing notification. `Wakelock` alone only prevents screen sleep while in foreground.
+
+```python
+from flet_practical import BackgroundService
+
+bg = BackgroundService(page)
+
+# One-time: disable battery optimization (Xiaomi/Samsung will still kill otherwise)
+if not await bg.is_ignoring_battery_optimizations():
+    await bg.request_ignore_battery_optimization()
+    # fallback: await bg.open_ignore_battery_optimization_settings()
+
+# Keep running after Home
+await bg.start(title="MyApp", text="Running in background…")
+# ... long asyncio work / download queue keeps running ...
+# await bg.is_running() -> bool
+# await bg.restart()
+await bg.stop()
+```
+
+Battery helpers live on the same `BackgroundService`:
+`is_ignoring_battery_optimizations()` / `request_ignore_battery_optimization()` / `open_ignore_battery_optimization_settings()` — call from your `SettingsView` one-time toggle or auto-prompt before `start()`.
+
+> **Why does the Python thread stop on Home?** On APK the Python isolate lives inside the `Activity` process — `Home` → `onPause()/onStop()` → without a `ForegroundService` Android kills the `FlutterEngine` (and thus the Python bridge) in seconds. This is expected Android behavior, not a Flet bug. `BackgroundService` promotes the process via `FOREGROUND_SERVICE_DATA_SYNC` + `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` + ongoing notification (`flutter_foreground_task 11.0.1`).
+
+
 ---
 
 ## Examples
@@ -158,7 +186,7 @@ await share.share_files(["/path/to/invoice.pdf"])
 Run any demo independently:
 
 ```bash
-uv run python examples/main.py             # Main Hub (All 7 Features)
+uv run python examples/main.py             # Main Hub (All 8 Features)
 uv run python examples/01_clipboard.py     # Clipboard demo
 uv run python examples/02_notifications.py # Notifications demo
 uv run python examples/03_wakelock.py      # WakeLock demo
@@ -166,6 +194,7 @@ uv run python examples/04_tts.py           # TTS demo
 uv run python examples/05_autostart.py     # AutoStart demo
 uv run python examples/06_iap.py           # In-App Purchases demo
 uv run python examples/07_share.py         # Native Share Intent demo
+uv run python examples/08_background.py    # Background Service demo
 ```
 
 ---

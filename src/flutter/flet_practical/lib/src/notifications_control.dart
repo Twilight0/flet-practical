@@ -51,7 +51,7 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
     );
 
     await _notificationsPlugin.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         // Send click event back to Flet Python
         widget.control.triggerEvent("click", response.payload ?? "");
@@ -62,7 +62,7 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
   }
 
   void _registerMethodHandlers() {
-    widget.control.invoker = (String name, dynamic args) async {
+    widget.control.addInvokeMethodListener((String name, dynamic args) async {
       switch (name) {
         case "request_permissions":
           bool? result;
@@ -127,17 +127,17 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
           );
 
           await _notificationsPlugin.show(
-            id,
-            title,
-            body,
-            notificationDetails,
+            id: id,
+            title: title,
+            body: body,
+            notificationDetails: notificationDetails,
             payload: payload,
           );
           return true;
 
         case "cancel":
           final int id = args is Map ? (args["id"] ?? 0) : int.parse(args.toString());
-          await _notificationsPlugin.cancel(id);
+          await _notificationsPlugin.cancel(id: id);
           return true;
 
         case "cancel_all":
@@ -147,7 +147,7 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
         default:
           throw Exception("Unknown notifications method: $name");
       }
-    };
+    });
   }
 
   @override

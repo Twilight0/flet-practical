@@ -1,6 +1,6 @@
 name: flet_practical
 description: Unified Flet extension suite bundling Clipboard, Local Notifications, WakeLock, Edge TTS, AutoStart on boot, and In-App Purchases.
-version: 0.1.1
+version: 0.2.0
 publish_to: none
 
 environment:
@@ -11,12 +11,13 @@ dependencies:
   flet: ^0.86.5
   flutter:
     sdk: flutter
-  pasteboard: ^0.3.0
-  flutter_local_notifications: ^17.2.3
-  wakelock_plus: ^1.2.8
-  launch_at_startup: ^0.3.2
-  in_app_purchase: ^3.2.0
-  share_plus: ^10.1.2
+  pasteboard: ^0.5.0
+  flutter_local_notifications: ^22.3.0
+  wakelock_plus: ^1.5.2
+  launch_at_startup: ^0.5.1
+  in_app_purchase: ^3.3.0
+  share_plus: ^12.0.1
+  flutter_foreground_task: ^11.0.1
 
 dev_dependencies:
   flutter_test:

@@ -5,6 +5,7 @@ import 'clipboard_control.dart';
 import 'notifications_control.dart';
 import 'wakelock_control.dart';
 import 'autostart_control.dart';
+import 'background_service_control.dart';
 import 'iap_control.dart';
 import 'share_control.dart';
 
@@ -32,6 +33,12 @@ class Extension extends FletExtension {
         );
       case "practical_autostart":
         return PracticalAutostartControl(
+          key: key,
+          parent: control.parent,
+          control: control,
+        );
+      case "practical_background_service":
+        return PracticalBackgroundServiceControl(
           key: key,
           parent: control.parent,
           control: control,

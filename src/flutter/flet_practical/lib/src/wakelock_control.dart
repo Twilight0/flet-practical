@@ -24,7 +24,7 @@ class _PracticalWakelockControlState extends State<PracticalWakelockControl> {
   }
 
   void _registerMethodHandlers() {
-    widget.control.invoker = (String name, dynamic args) async {
+    widget.control.addInvokeMethodListener((String name, dynamic args) async {
       switch (name) {
         case "enable":
           await WakelockPlus.enable();
@@ -35,8 +35,8 @@ class _PracticalWakelockControlState extends State<PracticalWakelockControl> {
           return true;
 
         case "toggle":
-          final bool on = args is Map ? (args["on"] as bool? ?? false) : (args == true || args == "true");
-          await WakelockPlus.toggle(on: on);
+          final bool enable = args is Map ? (args["on"] as bool? ?? args["enable"] as bool? ?? false) : (args == true || args == "true");
+          await WakelockPlus.toggle(enable: enable);
           return true;
 
         case "is_enabled":
@@ -45,7 +45,7 @@ class _PracticalWakelockControlState extends State<PracticalWakelockControl> {
         default:
           throw Exception("Unknown wakelock method: $name");
       }
-    };
+    });
   }
 
   @override

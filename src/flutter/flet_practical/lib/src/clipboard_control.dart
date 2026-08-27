@@ -26,14 +26,14 @@ class _PracticalClipboardControlState extends State<PracticalClipboardControl> {
   }
 
   void _registerMethodHandlers() {
-    widget.control.invoker = (String name, dynamic args) async {
+    widget.control.addInvokeMethodListener((String name, dynamic args) async {
       switch (name) {
         case "get_text":
           return await Pasteboard.text;
 
         case "set_text":
           final text = args is Map ? (args["text"] as String? ?? "") : (args?.toString() ?? "");
-          await Pasteboard.writeText(text);
+          Pasteboard.writeText(text);
           return true;
 
         case "get_html":
@@ -42,7 +42,8 @@ class _PracticalClipboardControlState extends State<PracticalClipboardControl> {
         case "set_html":
           final html = args is Map ? (args["html"] as String? ?? "") : (args?.toString() ?? "");
           final text = args is Map ? (args["text"] as String? ?? "") : "";
-          await Pasteboard.writeHtml(html: html, text: text);
+          // pasteboard 0.5.0 removed writeHtml; fallback to plain text
+          Pasteboard.writeText(text.isNotEmpty ? text : html);
           return true;
 
         case "get_image":
@@ -81,13 +82,13 @@ class _PracticalClipboardControlState extends State<PracticalClipboardControl> {
           return img != null && img.isNotEmpty;
 
         case "clear":
-          await Pasteboard.writeText("");
+          Pasteboard.writeText("");
           return true;
 
         default:
           throw Exception("Unknown clipboard method: $name");
       }
-    };
+    });
   }
 
   @override

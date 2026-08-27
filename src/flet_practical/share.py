@@ -2,8 +2,21 @@ import asyncio
 import os
 import shutil
 import sys
-from typing import Any, List, Optional, Union
-from urllib.parse import quote
+from typing import Any, List, Optional
+
+import flet as ft
+
+
+@ft.control("practical_share")
+class PracticalShare(ft.Service):
+    async def share_text(self, text: str, subject: Optional[str] = None):
+        return await self._invoke_method("share_text", arguments={"text": text, "subject": subject})
+
+    async def share_files(self, paths: List[str], text: Optional[str] = None, subject: Optional[str] = None):
+        return await self._invoke_method("share_files", arguments={"paths": paths, "text": text, "subject": subject})
+
+    async def share_uri(self, uri: str):
+        return await self._invoke_method("share_uri", arguments={"uri": uri})
 
 
 class Share:
@@ -26,6 +39,8 @@ class Share:
 
     def __init__(self, page: Optional[Any] = None):
         self._explicit_page = page
+        self._service: Optional[PracticalShare] = None
+        self._service_registered: bool = False
 
     @property
     def page(self) -> Optional[Any]:
@@ -41,12 +56,75 @@ class Share:
     def page(self, value: Optional[Any]) -> None:
         self._explicit_page = value
 
+    def _ensure_service(self) -> Optional[PracticalShare]:
+        if self._service_registered and self._service:
+            return self._service
+        current_page = self.page
+        if not current_page:
+            return None
+        try:
+            services = getattr(current_page, "services", None)
+            if services is not None:
+                for s in services:
+                    if isinstance(s, PracticalShare):
+                        self._service = s
+                        self._service_registered = True
+                        return self._service
+                self._service = PracticalShare()
+                services.append(self._service)
+                self._service_registered = True
+                # Ensure page updates so flutter extension is mounted
+                if hasattr(current_page, "update"):
+                    try:
+                        current_page.update()
+                    except Exception:
+                        pass
+                return self._service
+        except Exception:
+            pass
+        return None
+
+    def _is_mobile(self) -> bool:
+        current_page = self.page
+        if current_page and hasattr(current_page, "platform"):
+            try:
+                p = current_page.platform
+                # flet PagePlatform enum has is_mobile() in newer versions
+                if hasattr(p, "is_mobile") and callable(getattr(p, "is_mobile")):
+                    try:
+                        if p.is_mobile():
+                            return True
+                    except Exception:
+                        pass
+                s = str(p).lower()
+                if "android" in s or "ios" in s:
+                    return True
+            except Exception:
+                pass
+        # Fallback env checks for Android
+        return "ANDROID_ARGUMENT" in os.environ or "ANDROID_ROOT" in os.environ
+
     async def share_text(self, text: str, subject: Optional[str] = None) -> bool:
         """
         Open the native system share sheet to share plain text or URLs.
         """
         if not text:
             return False
+
+        # Mobile: delegate to native share sheet via practical_share
+        if self._is_mobile():
+            svc = self._ensure_service()
+            if svc:
+                try:
+                    res = await svc.share_text(text, subject=subject)
+                    # Flutter returns {"status": "...", "raw": ...}
+                    if isinstance(res, dict):
+                        status = str(res.get("status", "")).lower()
+                        # success/dismissed both mean sheet opened; unavailable/error means failed
+                        return status not in ("unavailable", "error", "")
+                    return bool(res)
+                except Exception:
+                    pass
 
         # Web fallback (Web Share API)
         if sys.platform == "emscripten" or "pyodide" in sys.modules:
@@ -91,6 +169,19 @@ class Share:
         if not valid_paths:
             return False
 
+        # Mobile: delegate to native share sheet via practical_share
+        if self._is_mobile():
+            svc = self._ensure_service()
+            if svc:
+                try:
+                    res = await svc.share_files(valid_paths, text=text, subject=subject)
+                    if isinstance(res, dict):
+                        status = str(res.get("status", "")).lower()
+                        return status not in ("unavailable", "error", "")
+                    return bool(res)
+                except Exception:
+                    pass
+
         # Linux Desktop Fallback (xdg-open folder or default file handler)
         if sys.platform.startswith("linux") and shutil.which("xdg-open"):
             try:
@@ -108,4 +199,15 @@ class Share:
 
     async def share_uri(self, uri: str) -> bool:
         """Share a specific URI scheme (e.g. mailto:, tel:, https:)."""
+        if self._is_mobile():
+            svc = self._ensure_service()
+            if svc:
+                try:
+                    res = await svc.share_uri(uri)
+                    if isinstance(res, dict):
+                        status = str(res.get("status", "")).lower()
+                        return status not in ("unavailable", "error", "")
+                    return bool(res)
+                except Exception:
+                    pass
         return await self.share_text(uri)

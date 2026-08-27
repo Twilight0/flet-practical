@@ -42,7 +42,7 @@ class _PracticalAutostartControlState extends State<PracticalAutostartControl> {
   }
 
   void _registerMethodHandlers() {
-    widget.control.invoker = (String name, dynamic args) async {
+    widget.control.addInvokeMethodListener((String name, dynamic args) async {
       switch (name) {
         case "enable":
           await launchAtStartup.enable();
@@ -58,7 +58,7 @@ class _PracticalAutostartControlState extends State<PracticalAutostartControl> {
         default:
           throw Exception("Unknown autostart method: $name");
       }
-    };
+    });
   }
 
   @override

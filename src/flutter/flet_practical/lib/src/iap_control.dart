@@ -56,7 +56,7 @@ class _PracticalIapControlState extends State<PracticalIapControl> {
   }
 
   void _registerMethodHandlers() {
-    widget.control.invoker = (String name, dynamic args) async {
+    widget.control.addInvokeMethodListener((String name, dynamic args) async {
       switch (name) {
         case "is_available":
           return await _iap.isAvailable();
@@ -114,7 +114,7 @@ class _PracticalIapControlState extends State<PracticalIapControl> {
         default:
           throw Exception("Unknown in-app purchase method: $name");
       }
-    };
+    });
   }
 
   @override
