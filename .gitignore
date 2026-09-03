@@ -33,3 +33,7 @@ htmlcov/
 .packages
 .pub/
 pubspec.lock
+# Allow flet-practical template overlay (inside repo, not generated build/)
+!templates/
+!templates/build/
+!templates/build/**
