@@ -5,6 +5,11 @@ import sys
 from typing import Any, List, Optional
 
 import flet as ft
+try:
+    from flet.controls.services.url_launcher import UrlLauncher, LaunchMode
+except Exception:
+    UrlLauncher = None
+    LaunchMode = None
 
 
 @ft.control("practical_share")
@@ -62,7 +67,7 @@ class Share:
     def page(self, value: Optional[Any]) -> None:
         self._explicit_page = value
 
-    def _ensure_service(self) -> Optional[PracticalShare]:
+    async def _ensure_service(self) -> Optional[PracticalShare]:
         if self._service_registered and self._service:
             return self._service
         current_page = self.page
@@ -77,15 +82,43 @@ class Share:
                         self._service_registered = True
                         return self._service
                 self._service = PracticalShare()
-                services.append(self._service)
+                # Flet diffs services by list identity - must assign new list
+                try:
+                    current_page.services = [*services, self._service]
+                except Exception:
+                    services.append(self._service)
+                # Also add to overlay as fallback
+                try:
+                    overlay = getattr(current_page, "overlay", None)
+                    if overlay is not None:
+                        already = False
+                        for o in overlay:
+                            if isinstance(o, PracticalShare):
+                                already = True
+                                break
+                        if not already:
+                            overlay.append(self._service)
+                except Exception:
+                    pass
                 self._service_registered = True
-                # Ensure page updates so flutter extension is mounted
                 if hasattr(current_page, "update"):
                     try:
-                        current_page.update()
+                        maybe = current_page.update()
+                        if asyncio.iscoroutine(maybe):
+                            await maybe
+                        await asyncio.sleep(3.0)
+                        try:
+                            maybe2 = current_page.update()
+                            if asyncio.iscoroutine(maybe2):
+                                await maybe2
+                        except Exception:
+                            pass
+                        await asyncio.sleep(1.0)
                     except Exception:
                         pass
                 return self._service
+            else:
+                return None
         except Exception:
             pass
         return None
@@ -119,7 +152,7 @@ class Share:
 
         # Mobile: delegate to native share sheet via practical_share
         if self._is_mobile():
-            svc = self._ensure_service()
+            svc = await self._ensure_service()
             if svc:
                 try:
                     res = await svc.share_text(text, subject=subject)
@@ -177,7 +210,7 @@ class Share:
 
         # Mobile: delegate to native share sheet via practical_share
         if self._is_mobile():
-            svc = self._ensure_service()
+            svc = await self._ensure_service()
             if svc:
                 try:
                     res = await svc.share_files(valid_paths, text=text, subject=subject)
@@ -206,7 +239,7 @@ class Share:
     async def share_uri(self, uri: str) -> bool:
         """Share a specific URI scheme (e.g. mailto:, tel:, https:)."""
         if self._is_mobile():
-            svc = self._ensure_service()
+            svc = await self._ensure_service()
             if svc:
                 try:
                     res = await svc.share_uri(uri)
@@ -227,14 +260,69 @@ class Share:
         if not path or not os.path.exists(path):
             return False
         if self._is_mobile():
-            svc = self._ensure_service()
+            svc = await self._ensure_service()
             if svc:
+                for attempt in range(3):
+                    try:
+                        res = await svc.open_file(path)
+                        if isinstance(res, dict) and str(res.get("type", "")).lower() in ("done", "success"):
+                            return True
+                        if isinstance(res, dict) and res.get("status") == "success":
+                            return True
+                    except Exception as e:
+                        if "Timeout" in str(type(e)) or "Timeout" in str(e):
+                            if attempt < 2:
+                                await asyncio.sleep(1.5)
+                                continue
+                        break
+            # Fallback: SAF content:// for file (file:// -> FileUriExposed on Android N+)
+            if UrlLauncher is not None:
                 try:
-                    res = await svc.open_file(path)
-                    if isinstance(res, dict) and str(res.get("type", "")).lower() in ("done", "success"):
+                    import urllib.parse
+                    primary_path = path
+                    if primary_path.startswith('/storage/emulated/0/'):
+                        primary_path = primary_path[len('/storage/emulated/0/'):].lstrip('/')
+                    elif primary_path.startswith('/sdcard/'):
+                        primary_path = primary_path[len('/sdcard/'):].lstrip('/')
+                    primary_path = primary_path.strip('/')
+                    if primary_path:
+                        encoded = urllib.parse.quote(f'primary:{primary_path}', safe='')
+                        uri = f'content://com.android.externalstorage.documents/document/{encoded}'
+                    else:
+                        import pathlib
+                        uri = pathlib.Path(path).as_uri()
+                    current_page = self.page
+                    launch_res = False
+                    if current_page is not None:
+                        try:
+                            launcher = UrlLauncher()
+                            services = getattr(current_page, "services", None)
+                            if services is not None and launcher not in services:
+                                try:
+                                    current_page.services = [*services, launcher]
+                                except Exception:
+                                    services.append(launcher)
+                                try:
+                                    maybe = current_page.update()
+                                    if asyncio.iscoroutine(maybe):
+                                        await maybe
+                                except Exception:
+                                    pass
+                                await asyncio.sleep(0.5)
+                            if LaunchMode is not None:
+                                launch_res = await launcher.launch_url(uri, mode=LaunchMode.EXTERNAL_APPLICATION)
+                            else:
+                                launch_res = await launcher.launch_url(uri)
+                        except Exception:
+                            if hasattr(current_page, "launch_url"):
+                                try:
+                                    launch_res = await current_page.launch_url(uri)
+                                except Exception:
+                                    pass
+                    if launch_res:
                         return True
-                except Exception as e:
-                    print(f"[Share.open_file] Mobile open_file error: {e}")
+                except Exception:
+                    pass
         try:
             if sys.platform.startswith("linux") and shutil.which("xdg-open"):
                 import subprocess
@@ -260,23 +348,74 @@ class Share:
         if not path:
             return False
         if self._is_mobile():
-            svc = self._ensure_service()
+            svc = await self._ensure_service()
             if svc:
-                try:
-                    res = await svc.open_folder(path)
-                    if isinstance(res, dict):
-                        if res.get("status") == "success":
+                for attempt in range(3):
+                    try:
+                        res = await svc.open_folder(path)
+                        if isinstance(res, dict):
+                            if res.get("status") == "success":
+                                return True
+                            return False
+                        if res:
                             return True
-                        # fallback: treat no_handler/error as failure so desktop fallback not triggered on mobile
-                        return False
-                    # if service returns truthy non-dict, consider success
-                    if res:
+                    except Exception as e:
+                        if "Timeout" in str(type(e)) or "Timeout" in str(e):
+                            if attempt < 2:
+                                await asyncio.sleep(1.5)
+                                continue
+                        break
+            # Fallback: SAF content:// for folder (file:// -> FileUriExposed on Android N+)
+            if UrlLauncher is not None:
+                try:
+                    folder = path if os.path.isdir(path) else os.path.dirname(path) or path
+                    import urllib.parse
+                    primary_path = folder
+                    if primary_path.startswith('/storage/emulated/0/'):
+                        primary_path = primary_path[len('/storage/emulated/0/'):].lstrip('/')
+                    elif primary_path.startswith('/sdcard/'):
+                        primary_path = primary_path[len('/sdcard/'):].lstrip('/')
+                    primary_path = primary_path.strip('/')
+                    if primary_path:
+                        encoded = urllib.parse.quote(f'primary:{primary_path}', safe='')
+                        uri = f'content://com.android.externalstorage.documents/document/{encoded}'
+                    else:
+                        uri = 'content://com.android.externalstorage.documents/root/primary'
+                    current_page = self.page
+                    launch_res = False
+                    if current_page is not None:
+                        try:
+                            launcher = UrlLauncher()
+                            services = getattr(current_page, "services", None)
+                            if services is not None and launcher not in services:
+                                try:
+                                    current_page.services = [*services, launcher]
+                                except Exception:
+                                    services.append(launcher)
+                                try:
+                                    maybe = current_page.update()
+                                    if asyncio.iscoroutine(maybe):
+                                        await maybe
+                                except Exception:
+                                    pass
+                                await asyncio.sleep(0.5)
+                            if LaunchMode is not None:
+                                launch_res = await launcher.launch_url(uri, mode=LaunchMode.EXTERNAL_APPLICATION)
+                            else:
+                                launch_res = await launcher.launch_url(uri)
+                        except Exception:
+                            if hasattr(current_page, "launch_url"):
+                                try:
+                                    launch_res = await current_page.launch_url(uri)
+                                except Exception:
+                                    pass
+                    if launch_res:
                         return True
-                except Exception as e:
-                    print(f"[Share.open_folder] Mobile open_folder error: {e}")
-                return False
+                except Exception:
+                    pass
+            return False
         try:
-            folder = path if os.path.isdir(path) else os.path.dirname(path)
+            folder = path if os.path.isdir(path) else os.path.dirname(path) or path
             if sys.platform.startswith("linux") and shutil.which("xdg-open"):
                 import subprocess
                 subprocess.Popen(["xdg-open", folder])

@@ -55,7 +55,7 @@ class ReceiveShare:
     def page(self, value: Optional[Any]) -> None:
         self._explicit_page = value
 
-    def _ensure_service(self) -> Optional[PracticalReceiveShare]:
+    async def _ensure_service(self) -> Optional[PracticalReceiveShare]:
         if self._service_registered and self._service:
             return self._service
         current_page = self.page
@@ -74,18 +74,25 @@ class ReceiveShare:
                 self._service = PracticalReceiveShare()
                 if self.on_share is not None:
                     self._service.on_share = self._on_share_event
-                services.append(self._service)
+                # Immutable assignment to trigger Flet diff (like Share fix)
+                try:
+                    current_page.services = [*services, self._service]
+                except Exception:
+                    services.append(self._service)
                 self._service_registered = True
                 if hasattr(current_page, "update"):
                     try:
-                        current_page.update()
+                        maybe = current_page.update()
+                        import asyncio
+                        if asyncio.iscoroutine(maybe):
+                            await maybe
+                        await asyncio.sleep(0.5)
                     except Exception:
                         pass
                 return self._service
         except Exception:
             pass
         return None
-
     async def _on_share_event(self, e: ft.ControlEvent) -> None:
         if self.on_share is None:
             return
@@ -107,7 +114,7 @@ class ReceiveShare:
             await result  # type: ignore
 
     async def get_initial_share(self) -> List[Dict[str, Any]]:
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc:
             try:
                 res = await svc._invoke_method("get_initial_share")
@@ -125,7 +132,7 @@ class ReceiveShare:
         return []
 
     async def reset(self) -> bool:
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc:
             try:
                 await svc._invoke_method("reset")
