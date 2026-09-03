@@ -7,7 +7,7 @@ from flet_practical.background_service import BackgroundService
 from flet_practical.receive_share import ReceiveShare
 from flet_practical.iap import InAppPurchase, Product
 from flet_practical.share import Share
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 __all__ = [
     "Clipboard",
     "Notifications",
