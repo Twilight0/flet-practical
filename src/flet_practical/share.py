@@ -18,6 +18,12 @@ class PracticalShare(ft.Service):
     async def share_uri(self, uri: str):
         return await self._invoke_method("share_uri", arguments={"uri": uri})
 
+    async def open_file(self, path: str):
+        return await self._invoke_method("open_file", arguments={"path": path})
+
+    async def open_folder(self, path: str):
+        return await self._invoke_method("open_folder", arguments={"path": path})
+
 
 class Share:
     """
@@ -211,3 +217,70 @@ class Share:
                 except Exception:
                     pass
         return await self.share_text(uri)
+
+    async def open_file(self, path: str) -> bool:
+        """
+        Open a file in the system's default application.
+        On Android: Uses native FileProvider Intent via OpenFilex.
+        On Desktop: Uses xdg-open / os.startfile / open.
+        """
+        if not path or not os.path.exists(path):
+            return False
+        if self._is_mobile():
+            svc = self._ensure_service()
+            if svc:
+                try:
+                    res = await svc.open_file(path)
+                    if isinstance(res, dict) and str(res.get("type", "")).lower() in ("done", "success"):
+                        return True
+                except Exception as e:
+                    print(f"[Share.open_file] Mobile open_file error: {e}")
+        try:
+            if sys.platform.startswith("linux") and shutil.which("xdg-open"):
+                import subprocess
+                subprocess.Popen(["xdg-open", path])
+                return True
+            elif sys.platform == "win32":
+                os.startfile(path)
+                return True
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", path])
+                return True
+        except Exception:
+            pass
+        return False
+
+    async def open_folder(self, path: str) -> bool:
+        """
+        Open a folder in the system file manager.
+        On Android: Launches native DocumentsContract / SAF Intent.
+        On Desktop: Opens file manager.
+        """
+        if not path:
+            return False
+        if self._is_mobile():
+            svc = self._ensure_service()
+            if svc:
+                try:
+                    res = await svc.open_folder(path)
+                    return True
+                except Exception as e:
+                    print(f"[Share.open_folder] Mobile open_folder error: {e}")
+        try:
+            folder = path if os.path.isdir(path) else os.path.dirname(path)
+            if sys.platform.startswith("linux") and shutil.which("xdg-open"):
+                import subprocess
+                subprocess.Popen(["xdg-open", folder])
+                return True
+            elif sys.platform == "win32":
+                os.startfile(folder)
+                return True
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", folder])
+                return True
+        except Exception:
+            pass
+        return False
+

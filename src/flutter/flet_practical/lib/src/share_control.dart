@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flet/flet.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PracticalShareControl extends StatefulWidget {
   final Control? parent;
@@ -73,6 +75,54 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
             "status": result.status.name,
             "raw": result.raw,
           };
+
+        case "open_file":
+          final String path = args is Map ? (args["path"] as String? ?? "") : args.toString();
+          final OpenResult result = await OpenFilex.open(path);
+          return {
+            "type": result.type.name,
+            "message": result.message,
+          };
+
+        case "open_folder":
+          final String path = args is Map ? (args["path"] as String? ?? "") : args.toString();
+          if (Platform.isAndroid) {
+            String uriStr;
+            if (path.contains("/storage/emulated/0/")) {
+              final rel = path.split("/storage/emulated/0/").last;
+              final encoded = Uri.encodeComponent(rel);
+              uriStr = "content://com.android.externalstorage.documents/document/primary%3A$encoded";
+            } else {
+              uriStr = "content://media/external/images/media";
+            }
+            final Uri uri = Uri.parse(uriStr);
+            bool launched = false;
+            try {
+              launched = await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
+            } catch (_) {
+              try {
+                launched = await launchUrl(uri);
+              } catch (_) {}
+            }
+            if (!launched) {
+              final Uri mediaUri = Uri.parse("content://media/external/images/media");
+              try {
+                await launchUrl(mediaUri, mode: LaunchMode.externalNonBrowserApplication);
+              } catch (_) {}
+            }
+            return {"status": "success"};
+          } else if (Platform.isLinux) {
+            await Process.run('xdg-open', [path]);
+            return {"status": "success"};
+          } else if (Platform.isWindows) {
+            await Process.run('explorer.exe', [path]);
+            return {"status": "success"};
+          } else if (Platform.isMacOS) {
+            await Process.run('open', [path]);
+            return {"status": "success"};
+          }
+          return {"status": "unsupported"};
+
         default:
           throw Exception("Unknown share method: $name");
       }
