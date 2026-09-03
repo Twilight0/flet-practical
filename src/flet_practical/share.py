@@ -254,7 +254,7 @@ class Share:
     async def open_folder(self, path: str) -> bool:
         """
         Open a folder in the system file manager.
-        On Android: Launches native DocumentsContract / SAF Intent.
+        On Android: Uses Uri.file + url_launcher (externalApplication) with SAF fallback.
         On Desktop: Opens file manager.
         """
         if not path:
@@ -264,9 +264,17 @@ class Share:
             if svc:
                 try:
                     res = await svc.open_folder(path)
-                    return True
+                    if isinstance(res, dict):
+                        if res.get("status") == "success":
+                            return True
+                        # fallback: treat no_handler/error as failure so desktop fallback not triggered on mobile
+                        return False
+                    # if service returns truthy non-dict, consider success
+                    if res:
+                        return True
                 except Exception as e:
                     print(f"[Share.open_folder] Mobile open_folder error: {e}")
+                return False
         try:
             folder = path if os.path.isdir(path) else os.path.dirname(path)
             if sys.platform.startswith("linux") and shutil.which("xdg-open"):

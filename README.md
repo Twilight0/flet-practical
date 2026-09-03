@@ -8,7 +8,7 @@ A unified, production-ready Flet extension suite bundling 9 essential device and
 4. 🎙️ **Edge Neural TTS**: High-quality speech synthesis using Microsoft's Edge neural voice engine (300+ voices).
 5. 🚀 **Auto-Start on Boot**: Configure automatic app startup on device boot and system launch.
 6. 💳 **In-App Purchases**: Manage Google Play & Apple App Store in-app billing, consumables, and subscriptions.
-7. 📤 **Native Share Intent**: Open the native OS Share Sheet (Android `ACTION_SEND`, iOS `UIActivityViewController`, Web Share API).
+7. 📤 **Native Share Intent & File Opener**: Open the native OS Share Sheet (`ACTION_SEND`) and open files/folders with the default app (`ACTION_VIEW` via `open_filex` + `url_launcher`).
 8. 🔄 **Background Service**: Keep the Python isolate alive after Home via Android ForegroundService.
 9. 📥 **Receive Share Intent**: Receive incoming shares from other apps (text, URLs, images, videos) via Android share menu.
 
@@ -140,18 +140,28 @@ products = await iap.get_products(["pro_monthly"])
 await iap.buy("pro_monthly")
 ```
 
-### 7. Native Share Intent
+### 7. Native Share Intent & File Opener
 ```python
 from flet_practical import Share
 
-share = Share()
+share = Share(page)  # pass page on mobile for native bridge, or Share() on desktop
 
 # Share text or URL
 await share.share_text("Check this out: https://flet.dev", subject="Flet App")
 
 # Share files
 await share.share_files(["/path/to/invoice.pdf"])
+
+# Open a file with the default app (Android: FileProvider + open_filex, Desktop: xdg-open/open/startfile)
+await share.open_file("/storage/emulated/0/Download/video.mp4")  # -> Gallery / VLC / etc.
+# returns True if handler found (Android: OpenResult type == "done")
+
+# Open a folder in the system file manager (Android: Uri.file + url_launcher + SAF fallback)
+await share.open_folder("/storage/emulated/0/Download")  # -> Files / Samsung My Files
+# or open parent folder of a file:
+await share.open_folder("/storage/emulated/0/Pictures/InstaSave/image.jpg")
 ```
+
 
 ### 8. Background Service
 Keep the Python isolate alive after the user returns to the Android desktop via a `ForegroundService` with an ongoing notification. `Wakelock` alone only prevents screen sleep while in foreground.

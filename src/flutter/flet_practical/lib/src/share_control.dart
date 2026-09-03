@@ -83,43 +83,50 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
             "type": result.type.name,
             "message": result.message,
           };
-
         case "open_folder":
           final String path = args is Map ? (args["path"] as String? ?? "") : args.toString();
+          if (path.isEmpty) return {"status": "error", "error": "empty path"};
           if (Platform.isAndroid) {
-            String uriStr;
-            if (path.contains("/storage/emulated/0/")) {
-              final rel = path.split("/storage/emulated/0/").last;
-              final encoded = Uri.encodeComponent(rel);
-              uriStr = "content://com.android.externalstorage.documents/document/primary%3A$encoded";
-            } else {
-              uriStr = "content://media/external/images/media";
-            }
-            final Uri uri = Uri.parse(uriStr);
-            bool launched = false;
+            final Uri fileUri = Uri.file(path);
+            bool ok = false;
             try {
-              launched = await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
-            } catch (_) {
+              if (await canLaunchUrl(fileUri)) {
+                ok = await launchUrl(fileUri, mode: LaunchMode.externalApplication);
+              }
+            } catch (_) {}
+            if (!ok) {
               try {
-                launched = await launchUrl(uri);
+                ok = await launchUrl(fileUri, mode: LaunchMode.externalApplication);
               } catch (_) {}
             }
-            if (!launched) {
-              final Uri mediaUri = Uri.parse("content://media/external/images/media");
+            if (!ok) {
+              final Uri fallback = Uri.parse("content://com.android.externalstorage.documents/root/primary");
               try {
-                await launchUrl(mediaUri, mode: LaunchMode.externalNonBrowserApplication);
+                ok = await launchUrl(fallback, mode: LaunchMode.externalApplication);
               } catch (_) {}
             }
-            return {"status": "success"};
+            return {"status": ok ? "success" : "no_handler"};
           } else if (Platform.isLinux) {
-            await Process.run('xdg-open', [path]);
-            return {"status": "success"};
+            try {
+              await Process.run('xdg-open', [path]);
+              return {"status": "success"};
+            } catch (e) {
+              return {"status": "error", "error": e.toString()};
+            }
           } else if (Platform.isWindows) {
-            await Process.run('explorer.exe', [path]);
-            return {"status": "success"};
+            try {
+              await Process.run('explorer', [path]);
+              return {"status": "success"};
+            } catch (e) {
+              return {"status": "error", "error": e.toString()};
+            }
           } else if (Platform.isMacOS) {
-            await Process.run('open', [path]);
-            return {"status": "success"};
+            try {
+              await Process.run('open', [path]);
+              return {"status": "success"};
+            } catch (e) {
+              return {"status": "error", "error": e.toString()};
+            }
           }
           return {"status": "unsupported"};
 
