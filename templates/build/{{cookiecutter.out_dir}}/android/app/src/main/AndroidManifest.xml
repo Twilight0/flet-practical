@@ -54,6 +54,8 @@
                     android:host="{{ cookiecutter.options.deep_linking.host }}" />
             </intent-filter>
             <!-- flet: end of deep linking {% endif %} -->
+            {% set _receive_share = cookiecutter.pyproject.get('tool', {}).get('flet', {}).get('android', {}).get('receive_share', True) %}
+            {% if _receive_share %}
                     <!-- Intent filters for receiving shares via receive_sharing_intent -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -95,6 +97,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" android:scheme="content" />
             </intent-filter>
+            {% endif %}
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"

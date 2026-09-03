@@ -45,6 +45,78 @@ pip install "flet-practical @ git+https://github.com/Twilight0/flet-practical.gi
 
 ---
 
+## Android Build Template (Cookiecutter Overlay)
+
+`flet-practical` bundles 4 Android plugins that the stock `flet` template does not configure:
+`receive_sharing_intent` (needs `compileSdk 37` + `SEND`/`SEND_MULTIPLE` intent-filters) and
+`flutter_local_notifications` (needs `isCoreLibraryDesugaringEnabled` + `desugar_jdk_libs:2.1.4`).
+`flet build apk` renders a `cookiecutter` project from `https://github.com/flet-dev/flet/releases/download/v0.86.5/flet-build-template.zip`
+(`BaseBuildCommand.create_flutter_project()` → `cookiecutter(template=url, directory=dir, checkout=ref, extra_context=template_data)`),
+cached in `~/.flet/cache/build-template/`, hashed via `HashStamp` — if you patch `build/` after `flet build`, the next `flet build` overwrites it. The overlay makes the patches **part of the template**, so `flet build` itself produces a correct `build/flutter`.
+
+### What the overlay is
+
+`flet-practical/templates/build/` is a **full copy** of `flet-build-template v0.86.5` (`build/cookiecutter.json`, `build/{{cookiecutter.out_dir}}/android/…`, `ios/…`, `pubspec.yaml` etc.) with a minimal diff:
+
+* `android/app/build.gradle.kts:23` `compileSdk = 37` (was `flutter.compileSdkVersion` = 36 on Flutter 3.44.8)
+* `android/app/build.gradle.kts:66` `isCoreLibraryDesugaringEnabled = true` + `135` `coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")`
+* `android/app/src/main/AndroidManifest.xml:28` `singleTop → singleTask` + 8 `intent-filter`s for `receive_sharing_intent` (wrapped in `{% if _receive_share %}`).
+
+Everything else (`pubspec.yaml`, `ios/`, `gradle.properties`, `mipmap`s) is upstream verbatim. You can modify any file in `templates/build/` — it is a normal `cookiecutter` template rendered with `{{ cookiecutter.* }}` (`template_data` includes your `pyproject.toml` as `cookiecutter.pyproject`).
+
+### How to use
+
+**Local dev (inside `flet-practical` repo or via path):**
+```toml
+# app/pyproject.toml
+[tool.flet.template]
+url = "/home/twilight/Development/flet_extensions/flet-practical/templates/build"
+# no dir/ref needed — url already points to the template root (contains cookiecutter.json)
+```
+
+**From git (for teammates/CI, no local path):**
+```toml
+[tool.flet.template]
+url = "https://github.com/Twilight0/flet-practical"
+dir = "templates/build"   # subfolder inside the repo that holds cookiecutter.json
+ref = "v0.3.1"            # tag/branch/commit — pin to flet-practical version
+```
+
+Then just:
+```bash
+uv run flet clean   # clears cached build/ so HashStamp re-renders from overlay
+uv run flet build apk --arch arm64-v8a   # or: uv run python build_apk.py (now only does packaging, no manual patch)
+```
+
+`flet` will `git clone` the `flet-practical` repo at `ref`, `cd` into `templates/build`, render `{{cookiecutter.out_dir}}` → `build/flutter`, and `HashStamp` will cache `template_url+ref+dir+template_data`. Changing `ref` or `pyproject.toml`’s `receive_share` invalidates the cache.
+
+### Toggling share intent-filters
+
+By default `receive_share` is **enabled** (filters rendered) so `ReceiveShare` works out-of-the-box:
+```xml
+{% set _receive_share = cookiecutter.pyproject.get('tool', {}).get('flet', {}).get('android', {}).get('receive_share', True) %}
+{% if _receive_share %} ...8 intent-filters... {% endif %}
+```
+
+* App **with** share sheet (InstaSave):
+  ```toml
+  [tool.flet.android]
+  receive_share = true  # default, can omit
+  ```
+* App **without** `ReceiveShare` (e.g. TTS-only, no share sheet):
+  ```toml
+  [tool.flet.android]
+  receive_share = false  # → manifest renders no SEND filters, app won't appear in Android share sheet
+  ```
+
+Permissions remain declarative via `tool.flet.android.permission` (already documented) — the template only adds the `Gradle`/`manifest` bits that `tool.flet` does not expose.
+
+### Modifiable?
+
+Yes — the overlay is a full template, not a patch file. Edit any `templates/build/{{cookiecutter.out_dir}}/…` file, commit, bump `ref`. `iOS` is not yet patched (priority later) — add `ios/Runner/Info.plist` / `Podfile` in same overlay when needed.
+
+---
+
 ## Modules Overview
 
 ### 1. Clipboard
