@@ -34,5 +34,8 @@
     "options": null,
     "pyproject": null,
     "boot_screen": null,
+    "indent_width": 4,
+    "indent_widgets": false,
+    "indent_share": false,
     "_extensions": ["cookiecutter_extensions.FletExtension"]
 }

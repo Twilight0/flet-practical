@@ -111,6 +111,42 @@ By default `receive_share` is **enabled** (filters rendered) so `ReceiveShare` w
 
 Permissions remain declarative via `tool.flet.android.permission` (already documented) — the template only adds the `Gradle`/`manifest` bits that `tool.flet` does not expose.
 
+### Toggleable indent for widgets / code blocks
+
+`templates/build/cookiecutter.json:37` exposes `indent_width` (default `4`) and **additional indent filters** `indent_widgets` / `indent_share` **default `false`** (disabled until enabled). `templates/build/cookiecutter_extensions.py:9` `FletExtension` registers `Jinja2` filters `indent_widget` and `indent_code`:
+
+```python
+# cookiecutter_extensions.py
+@pass_context
+def indent_widget(self, context, text, indent_level=1):
+    # via pyproject.toml [tool.flet] indent_widgets or cookiecutter indent_widgets (default false)
+    enabled = context.get("cookiecutter", {}).get("indent_widgets", False)
+    if not enabled:
+        return text
+    width = int(context.get("cookiecutter", {}).get("indent_width", 4))
+    indent = " " * (width * indent_level)
+    return "\n".join(indent + line if line else line for line in lines)
+```
+
+Use in any `templates/build/{{cookiecutter.out_dir}}/lib/*.dart` `→`
+```jinja
+{{ dart_widget_tree | indent_widget(2) }}   {# 2 levels → 8 spaces when indent_width=4, 4 spaces when 2 #}
+{{ some_code | indent_code }}               {# share/code, respects indent_share toggle #}
+{{ some_code | indent_code(2) }}            {# explicit width 2, ignores cookiecutter #}
+```
+
+Enable per-app project-wide without forking the template:
+```toml
+# app/pyproject.toml — rendered as cookiecutter.* via template_data pyproject
+[tool.flet]
+indent_width = 2          # 4 default
+indent_widgets = true      # false default — enable widget indent
+indent_share = true        # false default — enable share/code indent
+# via cookiecutter directly:
+# cookiecutter --no-input indent_width=2 indent_widgets=true indent_share=true
+```
+
+Disabled by default → `return text` unchanged → zero diff until you opt-in. `_extensions: ["cookiecutter_extensions.FletExtension"]` already declares the extension — no `pyproject` install needed.
 ### Modifiable?
 
 Yes — the overlay is a full template, not a patch file. Edit any `templates/build/{{cookiecutter.out_dir}}/…` file, commit, bump `ref`. `iOS` is not yet patched (priority later) — add `ios/Runner/Info.plist` / `Podfile` in same overlay when needed.

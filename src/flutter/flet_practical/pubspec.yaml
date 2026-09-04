@@ -1,6 +1,6 @@
 name: flet_practical
 description: Unified Flet extension suite bundling Clipboard, Local Notifications, WakeLock, Edge TTS, AutoStart on boot, In-App Purchases, Share and Background Service.
-version: 0.3.3
+version: 0.3.4
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

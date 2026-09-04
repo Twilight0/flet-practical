@@ -55,8 +55,9 @@
             </intent-filter>
             <!-- flet: end of deep linking {% endif %} -->
             {% set _receive_share = cookiecutter.pyproject.get('tool', {}).get('flet', {}).get('android', {}).get('receive_share', True) %}
-            {% if _receive_share %}
-                    <!-- Intent filters for receiving shares via receive_sharing_intent -->
+            {% set _receive_share_headless = cookiecutter.pyproject.get('tool', {}).get('flet', {}).get('android', {}).get('receive_share_headless', False) %}
+            {% if _receive_share and not _receive_share_headless %}
+                    <!-- Intent filters for receiving shares via receive_sharing_intent (MainActivity) -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -99,6 +100,58 @@
             </intent-filter>
             {% endif %}
         </activity>
+        {% if _receive_share and _receive_share_headless %}
+        <!-- Headless share receiver: does NOT spawn MainActivity UI, submodule does job -->
+        <activity
+            android:name=".ShareReceiverActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" android:scheme="content" />
+            </intent-filter>
+        </activity>
+        {% endif %}
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
