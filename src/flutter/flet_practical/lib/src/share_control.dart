@@ -1,3 +1,4 @@
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flet/flet.dart';
 import 'package:share_plus/share_plus.dart';
@@ -86,10 +87,35 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
           final String path = args is Map ? (args["path"] as String? ?? "") : args.toString();
           if (path.isEmpty) return {"status": "error", "error": "empty path"};
           if (Platform.isAndroid) {
-            // Android N+ StrictMode forbids file:// Intent.getData() -> FileUriExposedException
-            // Use SAF content:// via DocumentsProvider instead of Uri.file
+            // Older devices (< N, API 24) allow file:// without FileUriExposedException
+            int sdkInt = 0;
+            try {
+              final androidInfo = await DeviceInfoPlugin().androidInfo;
+              sdkInt = androidInfo.version.sdkInt;
+            } catch (_) {}
+            if (sdkInt != 0 && sdkInt < 24) {
+              final Uri fileUri = Uri.file(path);
+              bool ok = false;
+              try {
+                if (await canLaunchUrl(fileUri)) {
+                  ok = await launchUrl(fileUri, mode: LaunchMode.externalApplication);
+                }
+              } catch (_) {}
+              if (!ok) {
+                try {
+                  ok = await launchUrl(fileUri, mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
+              if (!ok) {
+                final Uri fallback = Uri.parse('content://com.android.externalstorage.documents/root/primary');
+                try {
+                  ok = await launchUrl(fallback, mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
+              return {"status": ok ? "success" : "no_handler"};
+            }
+            // Android N+ StrictMode forbids file:// -> Use SAF content://
             bool ok = false;
-            // Build SAF document URI: primary:Download/Warpinator
             String primaryPath = path;
             if (primaryPath.startsWith('/storage/emulated/0/')) {
               primaryPath = primaryPath.substring('/storage/emulated/0/'.length);
@@ -97,7 +123,6 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
               primaryPath = primaryPath.substring('/sdcard/'.length);
             }
             primaryPath = primaryPath.replaceAll(RegExp(r'^/+'), '').replaceAll(RegExp(r'/+$'), '');
-            // Try 1: SAF document URI for exact folder
             if (primaryPath.isNotEmpty) {
               final String encoded = Uri.encodeComponent('primary:$primaryPath');
               final Uri safUri = Uri.parse('content://com.android.externalstorage.documents/document/$encoded');
@@ -109,7 +134,6 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
                 }
               } catch (_) {}
             }
-            // Try 2: SAF tree URI
             if (!ok && primaryPath.isNotEmpty) {
               final String encodedTree = Uri.encodeComponent('primary:$primaryPath');
               final Uri treeUri = Uri.parse('content://com.android.externalstorage.documents/tree/$encodedTree/document/$encodedTree');
@@ -117,7 +141,6 @@ class _PracticalShareControlState extends State<PracticalShareControl> {
                 ok = await launchUrl(treeUri, mode: LaunchMode.externalApplication);
               } catch (_) {}
             }
-            // Fallback: generic SAF root (opens file manager)
             if (!ok) {
               final Uri fallback = Uri.parse('content://com.android.externalstorage.documents/root/primary');
               try {

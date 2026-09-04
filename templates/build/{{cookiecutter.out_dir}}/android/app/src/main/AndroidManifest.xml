@@ -151,6 +151,11 @@
                 <data android:mimeType="*/*" android:scheme="content" />
             </intent-filter>
         </activity>
+        <!-- Pure Python headless submodule service — does job without MainActivity UI -->
+        <service
+            android:name=".ShareDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         {% endif %}
         <provider
             android:name="androidx.core.content.FileProvider"

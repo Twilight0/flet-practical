@@ -68,17 +68,21 @@ class ShareReceiverActivity : Activity() {
             val out = File(filesDir, "share_payload.json")
             out.writeText(payload.toString())
             Log.i("ShareReceiver", "persisted ${out.absolutePath}")
+            // Pure Python submodule does job — not MainActivity UI
+            val svc = Intent(this, ShareDownloadService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(svc)
+            } else {
+                startService(svc)
+            }
         } catch (_: Exception) {}
-        // Optionally start foreground service to process headless (uncomment if BackgroundService used)
-        // val svc = Intent(this, FlutterForegroundTaskService::class.java)
-        // startForegroundService(svc)
     }
 
     private fun handleView(intent: Intent) {
         val data = intent.dataString
         try {
             val out = File(filesDir, "share_payload.json")
-            out.writeText("{\"action\":\"VIEW\",\"data\":\"$data\",\"ts\":${System.currentTimeMillis()}}")
+            out.writeText("{\"action\":\"VIEW\",\"data\":\"${data ?: ""}\",\"ts\":${System.currentTimeMillis()}}")
         } catch (_: Exception) {}
     }
 }

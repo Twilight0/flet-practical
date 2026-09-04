@@ -111,6 +111,20 @@ By default `receive_share` is **enabled** (filters rendered) so `ReceiveShare` w
 
 Permissions remain declarative via `tool.flet.android.permission` (already documented) — the template only adds the `Gradle`/`manifest` bits that `tool.flet` does not expose.
 
+### Headless share receiver (pure Python submodule, no MainActivity UI)
+
+By default `receive_share` spawns `MainActivity` (`singleTask`) `→` `ReceiveShare` `→` `handle_incoming_share` `→` `just opens app`. For **pure Python** headless `→` set `receive_share_headless = true` `→` `ShareReceiverActivity` `+` `ShareDownloadService` `→` **does job without MainActivity**:
+
+```toml
+[tool.flet.android]
+receive_share = true
+receive_share_headless = true  # false default → MainActivity; true → ShareReceiverActivity (Theme.Translucent, excludeFromRecents, noHistory) + ShareDownloadService (foregroundServiceType=dataSync)
+```
+
+* `ShareReceiverActivity.kt` `onCreate` `→` `handleSend/handleView` `→` `persist filesDir/share_payload.json` `+` `cache/share_*` `→` `startForegroundService(ShareDownloadService)` `→` `finish()` `→` **no UI**
+* `ShareDownloadService.kt` `→` `Service` `→` `headless FlutterEngine` `→` `Dart entrypoint shareBackgroundEntry` `→` `MethodChannel app.instasave/share_download handleShare` `→` `ReceiveShare` `→` `Python src/main.py handle_incoming_share` `→` `src/parsers/instagram.py` `→` `download+upscale` `→` `Notification` `→` `pure Python` `→` `submodule` `→` `does job`
+
+`{% set _receive_share_headless = cookiecutter.pyproject.get('tool', {}).get('flet', {}).get('android', {}).get('receive_share_headless', False) %}` `→` `if _receive_share and _receive_share_headless` `→` filters in `ShareReceiverActivity` + `service` `→` else `MainActivity`. Disabled by default `→` `zero diff` until `true`.
 ### Toggleable indent for widgets / code blocks
 
 `templates/build/cookiecutter.json:37` exposes `indent_width` (default `4`) and **additional indent filters** `indent_widgets` / `indent_share` **default `false`** (disabled until enabled). `templates/build/cookiecutter_extensions.py:9` `FletExtension` registers `Jinja2` filters `indent_widget` and `indent_code`:
