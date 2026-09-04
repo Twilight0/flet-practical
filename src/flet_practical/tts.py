@@ -7,7 +7,9 @@ import sys
 import tempfile
 from typing import Any, Callable, Dict, List, Optional
 
-import edge_tts
+
+# NOTE: edge_tts is imported lazily inside get_voices()/speak() so that
+# `import flet_practical` doesn't pay ~1s + tens of MB for an unused TTS engine.
 
 
 class TtsService:
@@ -41,9 +43,26 @@ class TtsService:
         self._current_audio_data: Optional[bytes] = None
         self._playback_process: Optional[subprocess.Popen] = None
 
+    @classmethod
+    def preload(cls) -> bool:
+        """Eagerly load the edge_tts engine now (opt-in).
+
+        Import is lazy by default so non-TTS apps start fast. Call this once
+        during splash/loading if you know TTS will be needed, so the first
+        speak()/get_voices() has no import hiccup:
+            TtsService.preload()
+        Returns True if the engine is available.
+        """
+        try:
+            import edge_tts  # noqa: F401
+            return True
+        except Exception:
+            return False
+
     async def get_voices(self) -> List[Dict[str, Any]]:
         """Retrieve list of all available Microsoft neural voices."""
         try:
+            import edge_tts
             voices = await edge_tts.list_voices()
             return [
                 {
@@ -83,6 +102,7 @@ class TtsService:
                 await res
 
         try:
+            import edge_tts  # lazy: don't burden non-TTS apps at import time
             communicate = edge_tts.Communicate(text=text, voice=v, rate=r, pitch=p, volume=vol)
             audio_buffer = io.BytesIO()
             async for chunk in communicate.stream():

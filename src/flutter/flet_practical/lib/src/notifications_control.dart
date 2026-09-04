@@ -24,45 +24,25 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
   void initState() {
     super.initState();
     _initPlugin();
-    _registerMethodHandlers();
+    widget.control.addInvokeMethodListener(_onInvokeMethod);
   }
 
-  Future<void> _initPlugin() async {
-    if (_isInitialized) return;
-
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const DarwinInitializationSettings darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    const LinuxInitializationSettings linuxSettings = LinuxInitializationSettings(
-      defaultActionName: 'Open notification',
-    );
-
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: darwinSettings,
-      macOS: darwinSettings,
-      linux: linuxSettings,
-    );
-
-    await _notificationsPlugin.initialize(
-      settings: initSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Send click event back to Flet Python
-        widget.control.triggerEvent("click", response.payload ?? "");
-      },
-    );
-
-    _isInitialized = true;
+  @override
+  void didUpdateWidget(PracticalNotificationsControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.control != widget.control) {
+      oldWidget.control.removeInvokeMethodListener(_onInvokeMethod);
+      widget.control.addInvokeMethodListener(_onInvokeMethod);
+    }
   }
 
-  void _registerMethodHandlers() {
-    widget.control.addInvokeMethodListener((String name, dynamic args) async {
+  @override
+  void dispose() {
+    widget.control.removeInvokeMethodListener(_onInvokeMethod);
+    super.dispose();
+  }
+
+  Future<dynamic> _onInvokeMethod(String name, dynamic args) async {
       switch (name) {
         case "request_permissions":
           bool? result;
@@ -147,7 +127,39 @@ class _PracticalNotificationsControlState extends State<PracticalNotificationsCo
         default:
           throw Exception("Unknown notifications method: $name");
       }
-    });
+  }
+  Future<void> _initPlugin() async {
+    if (_isInitialized) return;
+
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const LinuxInitializationSettings linuxSettings = LinuxInitializationSettings(
+      defaultActionName: 'Open notification',
+    );
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+      macOS: darwinSettings,
+      linux: linuxSettings,
+    );
+
+    await _notificationsPlugin.initialize(
+      settings: initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Send click event back to Flet Python
+        widget.control.triggerEvent("click", response.payload ?? "");
+      },
+    );
+
+    _isInitialized = true;
   }
 
   @override

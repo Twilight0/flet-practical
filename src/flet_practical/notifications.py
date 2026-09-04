@@ -86,7 +86,7 @@ class Notifications:
     def page(self, value: Optional[Any]) -> None:
         self._explicit_page = value
 
-    def _ensure_service(self) -> Optional[PracticalNotifications]:
+    async def _ensure_service(self) -> Optional[PracticalNotifications]:
         if self._service_registered and self._service:
             return self._service
 
@@ -106,15 +106,34 @@ class Notifications:
                 self._service = PracticalNotifications()
                 if self.on_click is not None:
                     self._service.on_click = self._on_click_event
-                services.append(self._service)
+                # Flet diffs services by list identity - in-place append never mounts.
+                try:
+                    current_page.services = [*services, self._service]
+                except Exception:
+                    services.append(self._service)
                 self._service_registered = True
+                if hasattr(current_page, "update"):
+                    try:
+                        maybe = current_page.update()
+                        if asyncio.iscoroutine(maybe):
+                            await maybe
+                        await asyncio.sleep(1.5)
+                        try:
+                            maybe2 = current_page.update()
+                            if asyncio.iscoroutine(maybe2):
+                                await maybe2
+                        except Exception:
+                            pass
+                        await asyncio.sleep(0.5)
+                    except Exception:
+                        pass
                 return self._service
         except Exception:
             pass
         return None
 
     async def request_permissions(self) -> bool:
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
             try:
                 return await svc.request_permissions()
@@ -132,7 +151,7 @@ class Notifications:
             await result
 
     async def are_notifications_enabled(self) -> bool:
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
             try:
                 return await svc.are_notifications_enabled()
@@ -164,24 +183,38 @@ class Notifications:
         if auto_cancel is None:
             auto_cancel = not ongoing
 
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
+            show_args = dict(
+                title=title,
+                body=body,
+                id=id,
+                payload=payload,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                channel_description=channel_description,
+                ongoing=ongoing,
+                auto_cancel=auto_cancel,
+                play_sound=play_sound,
+                enable_vibration=enable_vibration,
+            )
             try:
-                return await svc.show(
-                    title=title,
-                    body=body,
-                    id=id,
-                    payload=payload,
-                    channel_id=channel_id,
-                    channel_name=channel_name,
-                    channel_description=channel_description,
-                    ongoing=ongoing,
-                    auto_cancel=auto_cancel,
-                    play_sound=play_sound,
-                    enable_vibration=enable_vibration,
-                )
+                return await svc.show(**show_args)
             except Exception as ex:
-                print(f"Error calling mobile notification service: {ex}")
+                if "Timeout" not in str(type(ex)) and "Timeout" not in str(ex):
+                    print(f"Error calling mobile notification service: {ex}")
+                    return False
+                # Listener gone (control never mounted or disposed on rebuild):
+                # drop the dead handle, remount fresh, retry once.
+                self._service = None
+                self._service_registered = False
+                try:
+                    svc = await self._ensure_service()
+                    if svc:
+                        return await svc.show(**show_args)
+                except Exception as ex2:
+                    print(f"Error calling mobile notification service: {ex2}")
+                return False
 
         # Linux Desktop with interactive actions
         if sys.platform.startswith("linux") and shutil.which("notify-send"):
@@ -223,7 +256,7 @@ class Notifications:
         return True
 
     async def cancel(self, id: int = 1) -> bool:
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
             try:
                 return await svc.cancel(id)
@@ -236,7 +269,7 @@ class Notifications:
         return True
 
     async def cancel_all(self) -> bool:
-        svc = self._ensure_service()
+        svc = await self._ensure_service()
         if svc and self.page and getattr(self.page, "platform", None) in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS, "android", "ios"):
             try:
                 return await svc.cancel_all()

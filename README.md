@@ -241,6 +241,11 @@ tts = TtsService(voice="en-US-JennyNeural")
 await tts.speak("Welcome to Flet Practical!", play_immediately=True)
 ```
 
+`edge_tts` is imported lazily — `import flet_practical` never pays for the TTS engine (`~1s` + `aiohttp` subtree) unless you use it. To front-load that cost explicitly (e.g. during splash) in an app that needs instant first `speak()`:
+```python
+TtsService.preload()  # sync, returns True if engine available; first speak() then has no import hiccup
+```
+
 ### 5. Auto-Start on Boot
 ```python
 from flet_practical import AutoStart
